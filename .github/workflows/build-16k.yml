@@ -18,9 +18,11 @@ jobs:
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "bot@users.noreply.github.com"
 
-      - name: Alignement 16 Ko
+      - name: Source librtmp (miroir GitHub) + alignement 16 Ko
         run: |
+          sed -i 's#http://git.ffmpeg.org/rtmpdump#https://github.com/mirror/rtmpdump.git#' lib/src/main/cpp/CMakeLists.txt
           echo 'target_link_options(rtmpdroid PRIVATE "-Wl,-z,max-page-size=16384" "-Wl,-z,common-page-size=16384")' >> lib/src/main/cpp/CMakeLists.txt
+          grep -n "rtmpdump" lib/src/main/cpp/CMakeLists.txt
           tail -3 lib/src/main/cpp/CMakeLists.txt
 
       - name: Installer le NDK
