@@ -1,0 +1,76 @@
+name: Build rtmpdroid 16KB
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Git config (patchs librtmp)
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "bot@users.noreply.github.com"
+
+      - name: Alignement 16 Ko
+        run: |
+          echo 'target_link_options(rtmpdroid PRIVATE "-Wl,-z,max-page-size=16384" "-Wl,-z,common-page-size=16384")' >> lib/src/main/cpp/CMakeLists.txt
+          tail -3 lib/src/main/cpp/CMakeLists.txt
+
+      - name: Installer le NDK
+        run: echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;26.1.10909125" > /dev/null
+
+      - name: Compiler (version packed)
+        run: |
+          chmod +x gradlew
+          ./gradlew :lib:assemblePackedRelease --stacktrace
+
+      - name: Verifier l'alignement
+        run: |
+          mkdir verif && cd verif
+          unzip -q ../lib/build/outputs/aar/lib-packed-release.aar
+          READELF=$ANDROID_HOME/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf
+          for f in jni/*/librtmpdroid.so; do echo "== $f"; $READELF -lW "$f" | grep LOAD; done
+
+      - name: Preparer le depot Maven local
+        run: |
+          D=maven/video/api/rtmpdroid/1.2.1-packed
+          mkdir -p $D
+          cp lib/build/outputs/aar/lib-packed-release.aar $D/rtmpdroid-1.2.1-packed.aar
+          cat > $D/rtmpdroid-1.2.1-packed.pom <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+            <modelVersion>4.0.0</modelVersion>
+            <groupId>video.api</groupId>
+            <artifactId>rtmpdroid</artifactId>
+            <version>1.2.1-packed</version>
+            <packaging>aar</packaging>
+            <dependencies>
+              <dependency>
+                <groupId>androidx.core</groupId>
+                <artifactId>core-ktx</artifactId>
+                <version>1.12.0</version>
+                <scope>runtime</scope>
+              </dependency>
+              <dependency>
+                <groupId>androidx.appcompat</groupId>
+                <artifactId>appcompat</artifactId>
+                <version>1.6.1</version>
+                <scope>runtime</scope>
+              </dependency>
+            </dependencies>
+          </project>
+          EOF
+          sed -i 's/^          //' $D/rtmpdroid-1.2.1-packed.pom
+          ls -la $D
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rtmpdroid-16k
+          path: maven
