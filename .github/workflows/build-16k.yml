@@ -7,6 +7,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: v1.2.1
 
       - uses: actions/setup-java@v4
         with:
@@ -24,6 +26,7 @@ jobs:
           echo 'target_link_options(rtmpdroid PRIVATE "-Wl,-z,max-page-size=16384" "-Wl,-z,common-page-size=16384")' >> lib/src/main/cpp/CMakeLists.txt
           grep -n "rtmpdump" lib/src/main/cpp/CMakeLists.txt
           tail -3 lib/src/main/cpp/CMakeLists.txt
+          cat lib/src/main/java/video/api/rtmpdroid/RtmpNativeLoader.kt
 
       - name: Installer le NDK
         run: echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;26.1.10909125" > /dev/null
